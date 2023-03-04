@@ -36,26 +36,25 @@ public class RateLimitingConfig {
 }
 
 class RateLimitFilter implements Filter {
-	private static final long REQS_PER_MIN            = 20;
+    private static final long REQS_PER_MIN            = 20;
     private static final long REQS_IN_15_MINS_WINDOW  = 5;
     private static final Duration DURATION_1MIN       = Duration.ofMinutes(1);
- 	private static final Duration DURATION_15SECS     = Duration.ofSeconds(15);
+    private static final Duration DURATION_15SECS     = Duration.ofSeconds(15);
  	
-	private final Map<String, Bucket> eventsBucket = new HashMap<>();
+    private final Map<String, Bucket> eventsBucket = new HashMap<>();
 	
     public RateLimitFilter() {
         IntStream.range(1, 10).forEach(eventId ->this.eventsBucket.computeIfAbsent(String.valueOf(eventId), this::newBucket));
     }
 
     @Override
-    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain)
-            throws IOException, ServletException {
+    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
     	HttpServletResponse httpResponse = (HttpServletResponse) servletResponse;
         
         ConsumptionProbe probe = this.eventsBucket.get(servletRequest.getParameter("id")).tryConsumeAndReturnRemaining(1);
         
         if (probe.isConsumed()) {
-        	httpResponse.addHeader("X-Rate-Limit-Remaining", String.valueOf(probe.getRemainingTokens()));
+            httpResponse.addHeader("X-Rate-Limit-Remaining", String.valueOf(probe.getRemainingTokens()));
             filterChain.doFilter(servletRequest, servletResponse);
         } else {
             long waitForRefill = probe.getNanosToWaitForRefill() / 1_000_000_000;
@@ -69,7 +68,7 @@ class RateLimitFilter implements Filter {
     // Multiple limits can be set on the same bucket. Here we allow 20 requests per min and 5 requests in a 15 secs window
     private Bucket newBucket(String eventId) {	    	
 		return Bucket.builder()
-				.addLimit(Bandwidth.classic(REQS_PER_MIN, Refill.intervally(REQS_PER_MIN, DURATION_1MIN )))
+		    .addLimit(Bandwidth.classic(REQS_PER_MIN, Refill.intervally(REQS_PER_MIN, DURATION_1MIN )))
 	            .addLimit(Bandwidth.classic(REQS_IN_15_MINS_WINDOW, Refill.intervally(REQS_IN_15_MINS_WINDOW, DURATION_15SECS)))
 	            .build();
     }
